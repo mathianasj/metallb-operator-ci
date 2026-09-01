@@ -1,0 +1,96 @@
+name: Build and Publish Operator Bundle/Catalog
+
+on:
+  push:
+    branches:
+      - ci-quay-publish
+  workflow_dispatch:
+
+env:
+  REPO: quay.io/mathianasj
+  UPSTREAM_REPO: github.com/openshift/metallb-operator
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        run: |
+          git remote add openshift https://github.com/openshift/metallb-operator.git || true
+          git fetch openshift release-4.22
+          git checkout openshift/release-4.22 -- manifests/stable/ bundle/metadata/ bundle/tests/
+          cp -r manifests/stable/* bundle/manifests/
+          # Remove image-references (causes issues with OLM, images are in CSV instead)
+          rm -f bundle/manifests/image-references
+          # Patch images to use community metallb images (quay.io/metallb/*)
+          # Note: kube-rbac-proxy is kept from openshift (not public in metallb)
+          find bundle/manifests -name "*.yaml" -exec sed -i 's|quay.io/openshift/origin-metallb-operator:4.22|quay.io/metallb/metallb-operator:main|g' {} \;
+          find bundle/manifests -name "*.yaml" -exec sed -i 's|quay.io/openshift/origin-metallb-operator:4.21|quay.io/metallb/metallb-operator:main|g' {} \;
+          # FRR image replacement
+          find bundle/manifests -name "*.yaml" -exec sed -i 's|quay.io/openshift/origin-metallb-frr:4.22|quay.io/metallb/frr-k8s:main|g' {} \;
+          find bundle/manifests -name "*.yaml" -exec sed -i 's|quay.io/openshift/origin-metallb-frr:4.21|quay.io/metallb/frr-k8s:main|g' {} \;
+          # Create ClusterRole to add missing apiservers.config.openshift.io permission (upstream bug in release-4.22)
+          echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZQptZXRhZGF0YToKICBuYW1lOiBtZXRhbGxiLW9wZXJhdG9yLWFwaXNlcnZlci1yZWFkCiAgbGFiZWxzOgogICAgb3BlcmF0b3JzLmNvcmVvcy5jb20vbWV0YWxsYi1vcGVyYXRvci5tZXRhbGxiLXN5c3RlbTogIiIKcnVsZXM6Ci0gYXBpR3JvdXBzOgogIC0gY29uZmlnLm9wZW5zaGlmdC5pbwogIHJlc291cmNlczoKICAtIGFwaXNlcnZlcnMKICB2ZXJiczoKICAtIGdldAogIC0gbGlzdAogIC0gd2F0Y2gK" | base64 -d > bundle/manifests/metallb-operator-apiserver-role_rbac.authorization.k8s.io_v1_clusterrole.yaml
+          echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZUJpbmRpbmcKbWV0YWRhdGE6CiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1hcGlzZXJ2ZXItcmVhZAogIGxhYmVsczoKICAgIG9wZXJhdG9ycy5jb3Jlb3MuY29tL21ldGFsbGItb3BlcmF0b3IubWV0YWxsYi1zeXN0ZW06ICIiCnJvbGVSZWY6CiAgYXBpR3JvdXA6IHJiYWMuYXV0aG9yaXphdGlvbi5rOHMuaW8KICBraW5kOiBDbHVzdGVyUm9sZQogIG5hbWU6IG1ldGFsbGItb3BlcmF0b3ItYXBpc2VydmVyLXJlYWQKc3ViamVjdHM6Ci0ga2luZDogU2VydmljZUFjY291bnQKICBuYW1lOiBtYW5hZ2VyLWFjY291bnQKICBuYW1lc3BhY2U6IG1ldGFsbGItc3lzdGVtCg==" | base64 -d > bundle/manifests/metallb-operator-apiserver-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
+          # Create ClusterRole to add missing pods permission for controller SA (upstream bug)
+          echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZQptZXRhZGF0YToKICBuYW1lOiBtZXRhbGxiLW9wZXJhdG9yLWNvbnRyb2xsZXItcG9kLXJlYWQKICBsYWJlbHM6CiAgICBvcGVyYXRvcnMuY29yZW9zLmNvbS9tZXRhbGxiLW9wZXJhdG9yLm1ldGFsbGItc3lzdGVtOiAiIgpydWxlczoKLSBhcGlHcm91cHM6CiAgLSAiIgogIHJlc291cmNlczoKICAtIHBvZHMKICB2ZXJiczoKICAtIGdldAogIC0gbGlzdAogIC0gd2F0Y2gK" | base64 -d > bundle/manifests/metallb-operator-controller-pod-read_rbac.authorization.k8s.io_v1_clusterrole.yaml
+          echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZUJpbmRpbmcKbWV0YWRhdGE6CiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1jb250cm9sbGVyLXBvZC1yZWFkCiAgbGFiZWxzOgogICAgb3BlcmF0b3JzLmNvcmVvcy5jb20vbWV0YWxsYi1vcGVyYXRvci5tZXRhbGxiLXN5c3RlbTogIiIKcm9sZVJlZjoKICBhcGlHcm91cDogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pbwogIGtpbmQ6IENsdXN0ZXJSb2xlCiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1jb250cm9sbGVyLXBvZC1yZWFkCnN1YmplY3RzOgotIGtpbmQ6IFNlcnZpY2VBY2NvdW50CiAgbmFtZTogY29udHJvbGxlcgogIG5hbWVzcGFjZTogbWV0YWxsYi1zeXN0ZW0K" | base64 -d > bundle/manifests/metallb-operator-controller-pod-read-binding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
+          # Patch webhook-server container to add METALLB_POD_NAME env var
+          python3 hack/ci-patches/patch_csv_env.py
+          # Fix namespace in ClusterRoleBindings (metallb-system -> openshift-operators)
+          find bundle/manifests -name "*rolebinding*.yaml" -exec sed -i 's/namespace: metallb-system/namespace: openshift-operators/g' {} \;
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Quay
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Fix speaker image and SCC permissions in CSV
+        run: |
+          CSV="bundle/manifests/metallb-operator.clusterserviceversion.yaml"
+          # Fix env vars using yq (correct syntax with .value)
+          yq -i '(.spec.install.spec.deployments[0].spec.template.spec.containers[0].env[] | select(.name == "SPEAKER_IMAGE").value) = "quay.io/metallb/speaker:main"' "$CSV"
+          yq -i '(.spec.install.spec.deployments[0].spec.template.spec.containers[0].env[] | select(.name == "CONTROLLER_IMAGE").value) = "quay.io/metallb/controller:latest"' "$CSV"
+          # Fix webhook-server container image
+          yq -i '(.spec.install.spec.deployments[] | select(.name == "metallb-operator-webhook-server") | .spec.template.spec.containers[] | select(.name == "webhook-server") | .image) = "quay.io/metallb/controller:latest"' "$CSV"
+          # Add SCC permissions for metallb-speaker
+          if ! grep -q 'metallb-speaker' "$CSV"; then
+            yq -i '(.spec.install.spec.clusterPermissions[] | select(.serviceAccountName == "speaker") | .rules) += {"apiGroups": ["security.openshift.io"], "resourceNames": ["metallb-speaker"], "resources": ["securitycontextconstraints"], "verbs": ["use"]}' "$CSV"
+          fi
+          if ! grep -q 'security.openshift.io' "$CSV" || ! grep -q 'metallb-speaker.*create.*patch\|create.*patch.*metallb-speaker' "$CSV"; then
+            yq -i '(.spec.install.spec.clusterPermissions[] | select(.serviceAccountName == "manager-account") | .rules) += {"apiGroups": ["security.openshift.io"], "resourceNames": ["metallb-speaker"], "resources": ["securitycontextconstraints"], "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]}' "$CSV"
+          fi
+
+      - name: Bump CSV version for OLM
+        run: |
+          VERSION=4.22.$(date +%Y%m%d%H%M)
+          yq -i '(.spec.version) = "'"$VERSION"'"' bundle/manifests/metallb-operator.clusterserviceversion.yaml
+
+      - name: Build and Push Bundle Image
+        run: |
+          docker build -f bundle.Dockerfile -t ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} .
+          docker push ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }}
+
+      - name: Build and Push Bundle Index (Catalog)
+        run: |
+          make kustomize operator-sdk opm
+          make bundle-index-build BUNDLE_IMG=${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} BUNDLE_INDEX_IMG=${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }}
+          docker push ${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }}
+
+      - name: Tag as latest
+        if: github.ref == 'refs/heads/ci-quay-publish'
+        run: |
+          docker tag ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} ${{ env.REPO }}/metallb-operator-bundle:latest
+          docker tag ${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }} ${{ env.REPO }}/metallb-operator-bundle-index:latest
+          docker push ${{ env.REPO }}/metallb-operator-bundle:latest
+          docker push ${{ env.REPO }}/metallb-operator-bundle-index:latest

@@ -1,0 +1,71 @@
+# Note: If this is failing to create pull requests, it can be triaged
+# by inspecting the workflow run under the actions tab in github.
+
+name: Periodic MetalLB Bump
+on:
+  schedule:
+    # every day at 7am & 7pm (GMT+2)
+    - cron: "0 5,17 * * *"
+  workflow_dispatch:
+jobs:
+  bump-metallb-and-create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout metallb-operator
+        uses: actions/checkout@v4
+        with:
+          path: metallboperator
+      - name: Checkout metallb
+        uses: actions/checkout@v4
+        with:
+          repository: metallb/metallb
+          path: metallb
+          fetch-depth: 0
+      - name: Get current metallb commit hash
+        id: old-metallb
+        run: |
+          echo "commit_sha=$(cat metallboperator/hack/metallb_ref.txt)" >> $GITHUB_OUTPUT
+      - name: Get old commit info
+        id: old-commit-info
+        run: |
+          cd metallb
+          echo "commit_title=$(git log -1 --pretty=%s ${{ steps.old-metallb.outputs.commit_sha }})" >> $GITHUB_OUTPUT
+          echo "commit_date=$(git log -n1 --pretty='format:%cd' --date=format:'%Y-%m-%d' ${{ steps.old-metallb.outputs.commit_sha }})" >> $GITHUB_OUTPUT
+      - name: Get new commit info
+        id: new-commit-info
+        run: |
+          cd metallb
+          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "commit_title=$(git log -1 --pretty=%s HEAD)" >> $GITHUB_OUTPUT
+          echo "commit_date=$(git log -n1 --pretty='format:%cd' --date=format:'%Y-%m-%d' HEAD)" >> $GITHUB_OUTPUT
+      - name: Check if there are changes
+        id: check-for-changes
+        run: |
+          if [[ ${{ steps.old-metallb.outputs.commit_sha }} == ${{ steps.new-commit-info.outputs.commit_sha }} ]]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Configure git
+        if: ${{ steps.check-for-changes.outputs.has_changes == 'true' }}
+        working-directory: metallboperator
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "noreply@github.com"
+      - name: Bump metallb ref
+        if: ${{ steps.check-for-changes.outputs.has_changes == 'true' }}
+        working-directory: metallboperator
+        run: |
+          hack/bump_metallb.sh
+          cp hack/metallb_ref.txt ../metallb_ref.txt
+      - name: Create commit and push
+        if: ${{ steps.check-for-changes.outputs.has_changes == 'true' }}
+        working-directory: metallboperator
+        run: |
+          git fetch origin ci-quay-publish:ci-quay-publish
+          git checkout ci-quay-publish
+          git add hack/metallb_ref.txt
+          git commit -m "Bump MetalLB to ${{ steps.new-commit-info.outputs.commit_sha }}"
+          git push --force-with-lease origin ci-quay-publish
