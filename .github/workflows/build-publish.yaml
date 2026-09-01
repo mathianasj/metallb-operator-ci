@@ -86,7 +86,7 @@ jobs:
 
       - name: Build and Push Bundle Image
         run: |
-          docker build -f bundle.Dockerfile -t ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} .
+          docker buildx build --load --no-cache -f bundle.Dockerfile -t ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} .
           docker push ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }}
 
       - name: Build and Push Bundle Index (Catalog)
