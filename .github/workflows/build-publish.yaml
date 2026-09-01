@@ -36,14 +36,12 @@ jobs:
           find bundle/manifests -name "*.yaml" -exec sed -i 's|quay.io/openshift/origin-metallb-frr:4.21|quay.io/metallb/frr-k8s:main|g' {} \;
           # Create ClusterRole to add missing apiservers.config.openshift.io permission (upstream bug in release-4.22)
           echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZQptZXRhZGF0YToKICBuYW1lOiBtZXRhbGxiLW9wZXJhdG9yLWFwaXNlcnZlci1yZWFkCiAgbGFiZWxzOgogICAgb3BlcmF0b3JzLmNvcmVvcy5jb20vbWV0YWxsYi1vcGVyYXRvci5tZXRhbGxiLXN5c3RlbTogIiIKcnVsZXM6Ci0gYXBpR3JvdXBzOgogIC0gY29uZmlnLm9wZW5zaGlmdC5pbwogIHJlc291cmNlczoKICAtIGFwaXNlcnZlcnMKICB2ZXJiczoKICAtIGdldAogIC0gbGlzdAogIC0gd2F0Y2gK" | base64 -d > bundle/manifests/metallb-operator-apiserver-role_rbac.authorization.k8s.io_v1_clusterrole.yaml
-          echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZUJpbmRpbmcKbWV0YWRhdGE6CiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1hcGlzZXJ2ZXItcmVhZAogIGxhYmVsczoKICAgIG9wZXJhdG9ycy5jb3Jlb3MuY29tL21ldGFsbGItb3BlcmF0b3IubWV0YWxsYi1zeXN0ZW06ICIiCnJvbGVSZWY6CiAgYXBpR3JvdXA6IHJiYWMuYXV0aG9yaXphdGlvbi5rOHMuaW8KICBraW5kOiBDbHVzdGVyUm9sZQogIG5hbWU6IG1ldGFsbGItb3BlcmF0b3ItYXBpc2VydmVyLXJlYWQKc3ViamVjdHM6Ci0ga2luZDogU2VydmljZUFjY291bnQKICBuYW1lOiBtYW5hZ2VyLWFjY291bnQKICBuYW1lc3BhY2U6IG1ldGFsbGItc3lzdGVtCg==" | base64 -d > bundle/manifests/metallb-operator-apiserver-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
+          echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZUJpbmRpbmcKbWV0YWRhdGE6CiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1hcGlzZXJ2ZXItcmVhZAogIGxhYmVsczoKICAgIG9wZXJhdG9ycy5jb3Jlb3MuY29tL21ldGFsbGItb3BlcmF0b3IubWV0YWxiLXN5c3RlbTogIiIKcm9sZVJlZjoKICBhcGlHcm91cDogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pbwogIGtpbmQ6IENsdXN0ZXJSb2xlCiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1hcGlzZXJ2ZXItcmVhZApzdWJqZWN0czoKLSBraW5kOiBTZXJ2aWNlQWNjb3VudAogIG5hbWU6IG1hbmFnZXItYWNjb3VudAogIG5hbWVzcGFjZTogbWV0YWxsYi1zeXN0ZW0KCg==" | base64 -d > bundle/manifests/metallb-operator-apiserver-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
           # Create ClusterRole to add missing pods permission for controller SA (upstream bug)
           echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZQptZXRhZGF0YToKICBuYW1lOiBtZXRhbGxiLW9wZXJhdG9yLWNvbnRyb2xsZXItcG9kLXJlYWQKICBsYWJlbHM6CiAgICBvcGVyYXRvcnMuY29yZW9zLmNvbS9tZXRhbGxiLW9wZXJhdG9yLm1ldGFsbGItc3lzdGVtOiAiIgpydWxlczoKLSBhcGlHcm91cHM6CiAgLSAiIgogIHJlc291cmNlczoKICAtIHBvZHMKICB2ZXJiczoKICAtIGdldAogIC0gbGlzdAogIC0gd2F0Y2gK" | base64 -d > bundle/manifests/metallb-operator-controller-pod-read_rbac.authorization.k8s.io_v1_clusterrole.yaml
           echo "YXBpVmVyc2lvbjogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pby92MQpraW5kOiBDbHVzdGVyUm9sZUJpbmRpbmcKbWV0YWRhdGE6CiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1jb250cm9sbGVyLXBvZC1yZWFkCiAgbGFiZWxzOgogICAgb3BlcmF0b3JzLmNvcmVvcy5jb20vbWV0YWxsYi1vcGVyYXRvci5tZXRhbGxiLXN5c3RlbTogIiIKcm9sZVJlZjoKICBhcGlHcm91cDogcmJhYy5hdXRob3JpemF0aW9uLms4cy5pbwogIGtpbmQ6IENsdXN0ZXJSb2xlCiAgbmFtZTogbWV0YWxsYi1vcGVyYXRvci1jb250cm9sbGVyLXBvZC1yZWFkCnN1YmplY3RzOgotIGtpbmQ6IFNlcnZpY2VBY2NvdW50CiAgbmFtZTogY29udHJvbGxlcgogIG5hbWVzcGFjZTogbWV0YWxsYi1zeXN0ZW0K" | base64 -d > bundle/manifests/metallb-operator-controller-pod-read-binding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
           # Patch webhook-server container to add METALLB_POD_NAME env var
           python3 hack/ci-patches/patch_csv_env.py
-          # Fix namespace in ClusterRoleBindings (metallb-system -> openshift-operators)
-          find bundle/manifests -name "*rolebinding*.yaml" -exec sed -i 's/namespace: metallb-system/namespace: openshift-operators/g' {} \;
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -77,6 +75,7 @@ jobs:
           CSV="bundle/manifests/metallb-operator.clusterserviceversion.yaml"
           NEW_VERSION="4.22.$(date +%Y%m%d%H%M)"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          yq -i '(.metadata.name) = "metallb-operator.v'"$NEW_VERSION"'"' "$CSV"
           yq -i '(.spec.version) = "'"$NEW_VERSION"'"' "$CSV"
           yq -i '(.spec.package) = "metallb-operator"' "$CSV"
           yq -i '(.spec.channel) = "alpha"' "$CSV"
