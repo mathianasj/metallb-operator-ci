@@ -75,16 +75,12 @@ jobs:
         id: bump-csv
         run: |
           CSV="bundle/manifests/metallb-operator.clusterserviceversion.yaml"
-          CURRENT_VERSION=$(yq '.spec.version' "$CSV")
           NEW_VERSION="4.22.$(date +%Y%m%d%H%M)"
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           yq -i '(.spec.version) = "'"$NEW_VERSION"'"' "$CSV"
           yq -i '(.spec.package) = "metallb-operator"' "$CSV"
           yq -i '(.spec.channel) = "alpha"' "$CSV"
-          if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "null" ]; then
-            yq -i '(.spec.replaces) = "'"$CURRENT_VERSION"'"' "$CSV"
-          fi
+          yq -i 'del(.spec.replaces)' "$CSV"
 
       - name: Build and Push Bundle Image
         run: |
