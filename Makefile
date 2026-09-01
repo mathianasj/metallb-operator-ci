@@ -203,8 +203,7 @@ deploy-with-olm: deploy-olm load-on-kind build-and-push-bundle-images ## deploys
 	VERSION=$(CSV_VERSION) NAMESPACE=$(NAMESPACE) hack/wait-for-csv.sh
 
 bundle-index-build: opm  ## Build the bundle index image.
-	$(OPM) index init --bundle $(BUNDLE_IMG) --tag $(BUNDLE_INDEX_IMG) -c docker
-	$(OPM) index add --bundles $(BUNDLE_IMG) --from-index $(BUNDLE_INDEX_IMG) --tag $(BUNDLE_INDEX_IMG) -c docker -i quay.io/operator-framework/opm:$(OPM_VERSION) --permissive
+	$(OPM) index add --bundles $(BUNDLE_IMG) --tag $(BUNDLE_INDEX_IMG) -c docker -i quay.io/operator-framework/opm:$(OPM_VERSION) --permissive
 
 build-and-push-bundle-images: docker-build docker-push  ## Generate and push bundle image and bundle index image
 	$(MAKE) bundle
