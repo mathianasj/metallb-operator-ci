@@ -72,9 +72,17 @@ jobs:
           fi
 
       - name: Bump CSV version for OLM
+        id: bump-csv
         run: |
-          VERSION=4.22.$(date +%Y%m%d%H%M)
-          yq -i '(.spec.version) = "'"$VERSION"'"' bundle/manifests/metallb-operator.clusterserviceversion.yaml
+          CSV="bundle/manifests/metallb-operator.clusterserviceversion.yaml"
+          CURRENT_VERSION=$(yq '.spec.version' "$CSV")
+          NEW_VERSION="4.22.$(date +%Y%m%d%H%M)"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          yq -i '(.spec.version) = "'"$NEW_VERSION"'"' "$CSV"
+          if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "null" ]; then
+            yq -i '(.spec.replaces) = "'"$CURRENT_VERSION"'"' "$CSV"
+          fi
 
       - name: Build and Push Bundle Image
         run: |
