@@ -64,8 +64,8 @@ jobs:
         if: ${{ steps.check-for-changes.outputs.has_changes == 'true' }}
         working-directory: metallboperator
         run: |
-          git fetch origin ci-quay-publish:ci-quay-publish
-          git checkout ci-quay-publish
+          git fetch origin main:main
+          git checkout main
           git add hack/metallb_ref.txt
           git commit -m "Bump MetalLB to ${{ steps.new-commit-info.outputs.commit_sha }}"
-          git push --force-with-lease origin ci-quay-publish
+          git push --force-with-lease origin main

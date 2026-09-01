@@ -3,7 +3,7 @@ name: Build and Publish Operator Bundle/Catalog
 on:
   push:
     branches:
-      - ci-quay-publish
+      - main
   workflow_dispatch:
 
 env:
@@ -96,7 +96,7 @@ jobs:
           docker push ${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }}
 
       - name: Tag as latest
-        if: github.ref == 'refs/heads/ci-quay-publish'
+        if: github.ref == 'refs/heads/main'
         run: |
           docker tag ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} ${{ env.REPO }}/metallb-operator-bundle:latest
           docker tag ${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }} ${{ env.REPO }}/metallb-operator-bundle-index:latest
