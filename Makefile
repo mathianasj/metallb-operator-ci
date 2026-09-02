@@ -233,7 +233,7 @@ catalog-build: fbc-render fbc-validate ## Build a catalog image from the FBC.
 	mkdir -p $(CATALOG_DIR)
 	echo "FROM quay.io/operator-framework/opm:$(OPM_VERSION)" > $(CATALOG_DIR)/Dockerfile
 	echo "COPY catalog.json /database/catalog.json" >> $(CATALOG_DIR)/Dockerfile
-	echo 'CMD ["opm", "serve", "/database", "--port", "50051"]' >> $(CATALOG_DIR)/Dockerfile
+	echo 'CMD ["opm", "serve", "/database"]' >> $(CATALOG_DIR)/Dockerfile
 	docker build -t $(BUNDLE_INDEX_IMG) -f $(CATALOG_DIR)/Dockerfile $(CATALOG_DIR)/
 	rm -f $(CATALOG_DIR)/Dockerfile
 
