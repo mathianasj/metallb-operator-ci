@@ -202,15 +202,53 @@ deploy-with-olm: deploy-olm load-on-kind build-and-push-bundle-images ## deploys
 	$(KUSTOMIZE) build config/olm-install | kubectl apply -f -
 	VERSION=$(CSV_VERSION) NAMESPACE=$(NAMESPACE) hack/wait-for-csv.sh
 
-bundle-index-build: opm  ## Build the bundle index image.
+bundle-index-build: opm  ## Build the bundle index image (deprecated, use catalog-build).
 	$(OPM) index add --bundles $(BUNDLE_IMG) --tag $(BUNDLE_INDEX_IMG) -c docker -i quay.io/operator-framework/opm:$(OPM_VERSION) --permissive
+
+# Directory for the File-Based Catalog content.
+CATALOG_DIR ?= catalog/metallb-operator
+
+# The bundle image(s) to render into the FBC catalog.
+BUNDLE_IMGS ?= $(BUNDLE_IMG)
+
+# Dev channel name (e.g., "main"). When set, a dev channel is added to the catalog.
+DEV_CHANNEL ?=
+
+.PHONY: fbc-render
+fbc-render: opm ## Render bundle image(s) into a File-Based Catalog.
+	mkdir -p $(CATALOG_DIR)
+	@echo '{"schema":"olm.package","name":"metallb-operator","defaultChannel":"alpha"}' > $(CATALOG_DIR)/catalog.json
+	@echo '{"schema":"olm.channel","name":"alpha","package":"metallb-operator","entries":[{"name":"metallb-operator.v$(CSV_VERSION)"}]}' >> $(CATALOG_DIR)/catalog.json
+ifneq ($(DEV_CHANNEL),)
+	@echo '{"schema":"olm.channel","name":"$(DEV_CHANNEL)","package":"metallb-operator","entries":[{"name":"metallb-operator.v$(CSV_VERSION)","skipRange":">=0.0.0-0"}]}' >> $(CATALOG_DIR)/catalog.json
+endif
+	$(OPM) render $(BUNDLE_IMGS) -o json >> $(CATALOG_DIR)/catalog.json
+
+.PHONY: fbc-validate
+fbc-validate: opm ## Validate the File-Based Catalog.
+	$(OPM) validate $(CATALOG_DIR)/
+
+.PHONY: catalog-build
+catalog-build: fbc-render fbc-validate ## Build a catalog image from the FBC.
+	$(OPM) generate dockerfile $(CATALOG_DIR)/ --binary-image=quay.io/operator-framework/opm:$(OPM_VERSION)
+	docker build -t $(BUNDLE_INDEX_IMG) -f $(CATALOG_DIR)/Dockerfile $(CATALOG_DIR)/
+	rm -f $(CATALOG_DIR)/Dockerfile
+
+.PHONY: catalog-push
+catalog-push: ## Push a catalog image.
+	docker push $(BUNDLE_INDEX_IMG)
+
+.PHONY: catalog-clean
+catalog-clean: ## Clean generated catalog files.
+	rm -rf $(CATALOG_DIR)/ $(CATALOG_DIR)/Dockerfile
 
 build-and-push-bundle-images: docker-build docker-push  ## Generate and push bundle image and bundle index image
 	$(MAKE) bundle
 	$(MAKE) build-bundle
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
-	$(MAKE) bundle-index-build
-	$(MAKE) docker-push IMG=$(BUNDLE_INDEX_IMG)
+	$(MAKE) catalog-build
+	$(MAKE) catalog-push
+	$(MAKE) catalog-clean
 
 deploy-prometheus:
 	hack/deploy_prometheus.sh

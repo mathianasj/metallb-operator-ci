@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 env:
@@ -69,14 +71,39 @@ jobs:
             yq -i '(.spec.install.spec.clusterPermissions[] | select(.serviceAccountName == "manager-account") | .rules) += {"apiGroups": ["security.openshift.io"], "resourceNames": ["metallb-speaker"], "resources": ["securitycontextconstraints"], "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]}' "$CSV"
           fi
 
+      - name: Set version variables
+        id: vars
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "bundle_img=${{ env.REPO }}/metallb-operator-bundle:v${VERSION}" >> $GITHUB_OUTPUT
+            echo "catalog_img=${{ env.REPO }}/metallb-operator-bundle-index:v${VERSION}" >> $GITHUB_OUTPUT
+            echo "catalog_img_latest=${{ env.REPO }}/metallb-operator-bundle-index:latest" >> $GITHUB_OUTPUT
+            echo "dev_channel=" >> $GITHUB_OUTPUT
+          else
+            CURRENT_VERSION=$(grep '^VERSION ?=' Makefile | sed 's/VERSION ?= //')
+            MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+            MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+            PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+            NEXT_PATCH=$((PATCH + 1))
+            BRANCH=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+            TIMESTAMP=$(date +%s)
+            DEV_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}-${BRANCH}.${TIMESTAMP}"
+            echo "version=${DEV_VERSION}" >> $GITHUB_OUTPUT
+            echo "bundle_img=${{ env.REPO }}/metallb-operator-bundle:${DEV_VERSION}" >> $GITHUB_OUTPUT
+            echo "catalog_img=${{ env.REPO }}/metallb-operator-bundle-index:latest" >> $GITHUB_OUTPUT
+            echo "catalog_img_latest=" >> $GITHUB_OUTPUT
+            echo "dev_channel=${BRANCH}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Bump CSV version for OLM
-        id: bump-csv
         run: |
           CSV="bundle/manifests/metallb-operator.clusterserviceversion.yaml"
           CURRENT_CSV_NAME=$(yq '.metadata.name' "$CSV")
-          NEW_VERSION="4.22.$(date +%Y%m%d%H%M)"
+          NEW_VERSION="${{ steps.vars.outputs.version }}"
           NEW_CSV_NAME="metallb-operator.v${NEW_VERSION}"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "$NEW_CSV_NAME" > hack/operator_version
           yq -i '(.metadata.name) = "'"$NEW_CSV_NAME"'"' "$CSV"
           yq -i '(.spec.version) = "'"$NEW_VERSION"'"' "$CSV"
@@ -86,21 +113,34 @@ jobs:
             yq -i '(.spec.replaces) = "'"$CURRENT_CSV_NAME"'"' "$CSV"
           fi
 
-      - name: Build and Push Bundle Image
+      - name: Install operator-sdk
         run: |
-          docker buildx build --load --no-cache -f bundle.Dockerfile -t ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} .
-          docker push ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }}
+          OS=$(go env GOOS)
+          ARCH=$(go env GOARCH)
+          curl -sSLo operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v1.39.2/operator-sdk_${OS}_${ARCH}
+          chmod +x operator-sdk
+          sudo mv operator-sdk /usr/local/bin/
 
-      - name: Build and Push Bundle Index (Catalog)
+      - name: Validate bundle
         run: |
-          make kustomize operator-sdk opm
-          make bundle-index-build BUNDLE_IMG=${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} BUNDLE_INDEX_IMG=${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }}
-          docker push ${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }}
+          operator-sdk bundle validate ./bundle --select-optional suite=operatorframework
 
-      - name: Tag as latest
-        if: github.ref == 'refs/heads/main'
+      - name: Build and push bundle image
         run: |
-          docker tag ${{ env.REPO }}/metallb-operator-bundle:${{ github.sha }} ${{ env.REPO }}/metallb-operator-bundle:latest
-          docker tag ${{ env.REPO }}/metallb-operator-bundle-index:${{ github.sha }} ${{ env.REPO }}/metallb-operator-bundle-index:latest
-          docker push ${{ env.REPO }}/metallb-operator-bundle:latest
-          docker push ${{ env.REPO }}/metallb-operator-bundle-index:latest
+          docker buildx build --load --no-cache -f bundle.Dockerfile -t ${{ steps.vars.outputs.bundle_img }} .
+          docker push ${{ steps.vars.outputs.bundle_img }}
+
+      - name: Build and push catalog image (FBC)
+        run: |
+          make kustomize opm
+          make catalog-build \
+            BUNDLE_IMG=${{ steps.vars.outputs.bundle_img }} \
+            BUNDLE_INDEX_IMG=${{ steps.vars.outputs.catalog_img }} \
+            CSV_VERSION=${{ steps.vars.outputs.version }} \
+            DEV_CHANNEL=${{ steps.vars.outputs.dev_channel }}
+          docker push ${{ steps.vars.outputs.catalog_img }}
+          if [ -n "${{ steps.vars.outputs.catalog_img_latest }}" ]; then
+            docker tag ${{ steps.vars.outputs.catalog_img }} ${{ steps.vars.outputs.catalog_img_latest }}
+            docker push ${{ steps.vars.outputs.catalog_img_latest }}
+          fi
+          make catalog-clean
