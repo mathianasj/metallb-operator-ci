@@ -48,7 +48,7 @@ endif
 
 OPERATOR_SDK_VERSION ?= v1.40.0
 OLM_VERSION ?= v0.32.0
-OPM_VERSION ?= v1.40.0
+OPM_VERSION ?= v1.44.0
 OPM=$(shell pwd)/_cache/opm
 KUSTOMIZE_VERSION ?= v5.5.0
 KUSTOMIZE=$(shell pwd)/_cache/kustomize
