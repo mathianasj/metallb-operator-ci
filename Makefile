@@ -48,7 +48,7 @@ endif
 
 OPERATOR_SDK_VERSION ?= v1.40.0
 OLM_VERSION ?= v0.32.0
-OPM_VERSION ?= v1.55.0
+OPM_VERSION ?= v1.40.0
 OPM=$(shell pwd)/_cache/opm
 KUSTOMIZE_VERSION ?= v5.5.0
 KUSTOMIZE=$(shell pwd)/_cache/kustomize
@@ -230,9 +230,9 @@ fbc-validate: opm ## Validate the File-Based Catalog.
 
 .PHONY: catalog-build
 catalog-build: fbc-render fbc-validate ## Build a catalog image from the FBC.
-	$(OPM) generate dockerfile . --base-image=quay.io/operator-framework/opm:$(OPM_VERSION)
-	docker build -t $(BUNDLE_INDEX_IMG) -f Dockerfile .
-	rm -f Dockerfile
+	$(OPM) generate dockerfile $(CATALOG_DIR) --base-image=quay.io/operator-framework/opm:$(OPM_VERSION)
+	docker build -t $(BUNDLE_INDEX_IMG) -f $(CATALOG_DIR)/Dockerfile .
+	rm -f $(CATALOG_DIR)/Dockerfile
 
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
