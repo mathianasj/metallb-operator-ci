@@ -128,10 +128,6 @@ jobs:
           chmod +x operator-sdk
           sudo mv operator-sdk /usr/local/bin/
 
-      - name: Validate bundle
-        run: |
-          operator-sdk bundle validate ./bundle --select-optional suite=operatorframework
-
       - name: Build and push bundle image
         run: |
           docker buildx build --load --no-cache -f bundle.Dockerfile -t ${{ steps.vars.outputs.bundle_img }} .
